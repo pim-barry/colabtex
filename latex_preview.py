@@ -1,7 +1,6 @@
 import subprocess
-import re
 from pathlib import Path
-from IPython.display import SVG, display
+from IPython.display import HTML, display
 
 
 def render_latex(
@@ -13,27 +12,18 @@ def render_latex(
     engine: str = "pdflatex",
 ):
     """
-    Compile a LaTeX snippet and preview it as SVG inside a notebook.
+    Compile LaTeX snippet and preview as SVG (robust, no XML parsing errors).
+
+    Self-contained, portable, safe.
 
     Parameters
     ----------
-    snippet : str
-        LaTeX code to render (no document wrapper needed).
-
-    name : str
-        Base filename for generated files.
-
-    preamble : str
-        Extra LaTeX preamble (e.g., \\usepackage{booktabs})
-
-    width_pt : int
-        Display width in points (vector scaled, no quality loss)
-
-    out_dir : str
-        Directory where outputs are stored
-
-    engine : str
-        LaTeX engine (pdflatex, xelatex, lualatex)
+    snippet : LaTeX snippet (no wrapper needed)
+    name : output filename base
+    preamble : extra LaTeX preamble
+    width_pt : display width in points
+    out_dir : output directory
+    engine : pdflatex, xelatex, or lualatex
     """
 
     OUT = Path(out_dir)
@@ -43,7 +33,7 @@ def render_latex(
     pdf = OUT / f"{name}.pdf"
     svg = OUT / f"{name}.svg"
 
-    # write LaTeX wrapper
+    # Write LaTeX file
     tex.write_text(
         f"""
 \\documentclass{{standalone}}
@@ -54,7 +44,7 @@ def render_latex(
 """.strip()
     )
 
-    # compile LaTeX → PDF
+    # Compile LaTeX → PDF
     subprocess.run(
         [
             "latexmk",
@@ -70,7 +60,7 @@ def render_latex(
         check=True,
     )
 
-    # convert PDF → SVG
+    # Convert PDF → SVG
     subprocess.run(
         ["pdf2svg", pdf.name, svg.name],
         cwd=OUT,
@@ -79,23 +69,19 @@ def render_latex(
         check=True,
     )
 
-    # safely scale SVG (remove existing width/height first)
-    content = svg.read_text()
+    # Read SVG content
+    svg_content = svg.read_text()
 
-    content = re.sub(r'\swidth="[^"]+"', "", content)
-    content = re.sub(r'\sheight="[^"]+"', "", content)
-
-    content = re.sub(
-        r"<svg",
-        f'<svg width="{width_pt}pt"',
-        content,
-        count=1,
+    # Display SVG safely (no XML parsing)
+    display(
+        HTML(
+            f'''
+<div style="width:{width_pt}pt">
+{svg_content}
+</div>
+'''
+        )
     )
-
-    svg.write_text(content)
-
-    # display SVG preview
-    display(SVG(str(svg)))
 
     return {
         "tex": tex,
