@@ -11,6 +11,8 @@ def render_latex(
     height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
+    download_zip: bool = False,
+    zip_name: str | None = None,
 ):
     """
     Compile LaTeX snippet and preview as properly scaled SVG.
@@ -90,6 +92,16 @@ def render_latex(
     </div>
     """))
 
+    if download_zip:
+        _zip_name = zip_name or f"{name}_bundle.zip"
+        _zip_path = _make_overleaf_zip(
+            out_dir=OUT,
+            tex=tex,
+            pgf=None,
+            zip_name=_zip_name,
+        )
+        _maybe_download(_zip_path)
+
     return {"tex": tex, "pdf": pdf, "svg": svg}
 
 
@@ -100,6 +112,8 @@ def pgfplot_helper(
     height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
+    download_zip: bool = False,
+    zip_name: str | None = None,
 ):
     """
     Preview existing PGF plot file.
@@ -126,6 +140,8 @@ def pgfplot_helper(
         height=height,
         out_dir=out_dir,
         engine=engine,
+        download_zip=download_zip,
+        zip_name=zip_name,
     )
 
 
@@ -136,6 +152,8 @@ def pgfplot(
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
     close: bool = True,
+    download_zip: bool = False,
+    zip_name: str | None = None,
 ):
     """
     Export current matplotlib figure to PGF and preview scaled SVG.
@@ -164,11 +182,63 @@ def pgfplot(
     if close:
         plt.close()
 
-    return pgfplot_helper(
+    result = pgfplot_helper(
         filename=pgf_file.name,
         name=name + "_preview",
         width=width,
         height=height,
         out_dir=out_dir,
         engine=engine,
+        download_zip=False,
+        zip_name=None,
     )
+
+    if download_zip:
+        _zip_name = zip_name or f"{name}_bundle.zip"
+        _zip_path = _make_overleaf_zip(
+            out_dir=OUT,
+            tex=OUT / f"{name}_preview.tex",
+            pgf=pgf_file,
+            zip_name=_zip_name,
+        )
+        _maybe_download(_zip_path)
+
+    return result
+
+
+def _make_overleaf_zip(out_dir: Path, tex: Path, pgf: Path | None, zip_name: str) -> Path:
+    import re
+    import zipfile
+
+    zip_path = out_dir / zip_name
+
+    files = []
+    if tex.exists():
+        files.append(tex)
+    if pgf is not None and pgf.exists():
+        files.append(pgf)
+
+    pngs = set()
+    if pgf is not None and pgf.exists():
+        text = pgf.read_text(errors="ignore")
+        for m in re.findall(r"([A-Za-z0-9_./-]+\\.png)", text):
+            pngs.add(m)
+
+    for rel in pngs:
+        candidate = (out_dir / rel).resolve()
+        if candidate.exists():
+            files.append(candidate)
+
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            zf.write(f, arcname=f.name)
+
+    return zip_path
+
+
+def _maybe_download(path: Path) -> None:
+    try:
+        from google.colab import files  # type: ignore
+        files.download(str(path))
+    except Exception:
+        pass
