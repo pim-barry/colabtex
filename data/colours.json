@@ -1,0 +1,62 @@
+[
+  {
+    "id": 0,
+    "name": "Artificial surfaces and constructions",
+    "acronym": "URB",
+    "rgb": [210, 0, 0]
+  },
+  {
+    "id": 1,
+    "name": "Cultivated areas",
+    "acronym": "CUL",
+    "rgb": [253, 211, 39]
+  },
+  {
+    "id": 2,
+    "name": "Broadleaf tree cover",
+    "acronym": "BLF",
+    "rgb": [35, 152, 0]
+  },
+  {
+    "id": 3,
+    "name": "Coniferous tree cover",
+    "acronym": "CNF",
+    "rgb": [8, 94, 0]
+  },
+  {
+    "id": 4,
+    "name": "Herbaceous vegetation",
+    "acronym": "HRB",
+    "rgb": [249, 150, 39]
+  },
+  {
+    "id": 5,
+    "name": "Moors and Heathland",
+    "acronym": "MOO",
+    "rgb": [141, 139, 0]
+  },
+  {
+    "id": 6,
+    "name": "Marshes",
+    "acronym": "MSH",
+    "rgb": [149, 109, 255]
+  },
+  {
+    "id": 7,
+    "name": "Peatbogs",
+    "acronym": "PTB",
+    "rgb": [149, 109, 196]
+  },
+  {
+    "id": 8,
+    "name": "Natural material surfaces",
+    "acronym": "NMS",
+    "rgb": [154, 154, 154]
+  },
+  {
+    "id": 9,
+    "name": "Water bodies",
+    "acronym": "WTR",
+    "rgb": [20, 69, 249]
+  }
+]
