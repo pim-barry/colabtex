@@ -267,7 +267,8 @@ def _make_overleaf_zip(
 
         tex_bundle = out_dir / f"{tex.stem}_bundle{tex.suffix}"
         tex_bundle.write_text(text)
-        files.append((tex_bundle, f"{bundle_dir}/{tex.name}"))
+        bundle_tex_name = tex.name.replace("_preview", "")
+        files.append((tex_bundle, f"{bundle_dir}/{bundle_tex_name}"))
 
     if pgf is not None and pgf.exists():
         pgf_text = pgf.read_text(errors="ignore")
@@ -306,10 +307,32 @@ def _make_overleaf_zip(
         for m in re.findall(r"([A-Za-z0-9_./-]+\\.png)", text):
             pngs.add(m)
 
+    search_roots = [
+        out_dir,
+        Path.cwd(),
+        Path.cwd() / "data" / "out",
+    ]
+
     for rel in pngs:
-        candidate = (out_dir / rel).resolve()
-        if candidate.exists():
-            files.append((candidate, f"{bundle_dir}/{Path(rel).name}"))
+        found = None
+        rel_path = Path(rel)
+        # If pgf contains an absolute path, try it directly.
+        if rel_path.is_absolute() and rel_path.exists():
+            found = rel_path
+        else:
+            for root in search_roots:
+                candidate = (root / rel_path).resolve()
+                if candidate.exists():
+                    found = candidate
+                    break
+                # Also try just the basename in each root.
+                candidate = (root / rel_path.name).resolve()
+                if candidate.exists():
+                    found = candidate
+                    break
+
+        if found is not None:
+            files.append((found, f"{bundle_dir}/{found.name}"))
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for f, arc in files:
