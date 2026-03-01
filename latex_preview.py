@@ -1,7 +1,6 @@
 import subprocess
-import re
 from pathlib import Path
-from IPython.display import SVG, display
+from IPython.display import HTML, display
 
 
 def render_latex(
@@ -9,13 +8,15 @@ def render_latex(
     name: str = "preview",
     preamble: str = "",
     width: int = 600,
-    height: int = 400,
+    height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
 ):
     """
-    Compile LaTeX snippet and preview as SVG.
-    Fully self-contained and fixes blank PGF plot issue.
+    Compile LaTeX snippet and preview as properly scaled SVG.
+
+    Width is respected and SVG scales correctly.
+    Works in Colab, Jupyter, VSCode.
     """
 
     OUT = Path(out_dir)
@@ -25,7 +26,7 @@ def render_latex(
     pdf = OUT / f"{name}.pdf"
     svg = OUT / f"{name}.svg"
 
-    # CRITICAL FIX: crop,tight ensures proper bounding box
+    # Standalone ensures tight bounding box
     tex.write_text(
         f"""
 \\documentclass[crop,tight]{{standalone}}
@@ -70,15 +71,18 @@ def render_latex(
         check=True,
     )
 
-    # Resize SVG to requested dimensions
-    content = svg.read_text()
+    # Inline SVG and scale correctly using CSS
+    svg_content = svg.read_text()
 
-    content = re.sub(r'width="[^"]+"', f'width="{width}px"', content)
-    content = re.sub(r'height="[^"]+"', f'height="{height}px"', content)
+    style = f"width:{width}px;"
+    if height is not None:
+        style += f"height:{height}px;"
 
-    svg.write_text(content)
-
-    display(SVG(str(svg)))
+    display(HTML(f"""
+<div style="{style}">
+{svg_content}
+</div>
+"""))
 
     return {"tex": tex, "pdf": pdf, "svg": svg}
 
@@ -87,12 +91,12 @@ def pgfplot_helper(
     filename: str,
     name: str = None,
     width: int = 600,
-    height: int = 400,
+    height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
 ):
     """
-    Preview an existing PGF plot file.
+    Preview existing PGF plot file.
     """
 
     filename = Path(filename)
@@ -122,13 +126,17 @@ def pgfplot_helper(
 def pgfplot(
     name: str = "plot",
     width: int = 600,
-    height: int = 400,
+    height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
     close: bool = True,
 ):
     """
-    Export current matplotlib figure to PGF and preview as SVG.
+    Export current matplotlib figure to PGF and preview scaled SVG.
+
+    Example:
+        plt.plot(x,y)
+        pgfplot("figure", width=900)
     """
 
     import matplotlib.pyplot as plt
