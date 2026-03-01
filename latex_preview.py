@@ -252,7 +252,7 @@ def _make_overleaf_zip(
     if tex.exists():
         if pgf is not None and pgf.exists():
             # Create an Overleaf-friendly tex (non-standalone).
-            figures_path = f"{bundle_dir}/{pgf.name}"
+            figures_path = f"figures/{bundle_dir}/{pgf.name}"
             if caption:
                 text = rf"""
 \begin{{figure}}
@@ -282,7 +282,7 @@ def _make_overleaf_zip(
         def _fix_include(m: re.Match) -> str:
             path = re.sub(r"\\s+", "", m.group(1))
             if path.endswith(".png"):
-                return m.group(0).replace(m.group(1), f"{bundle_dir}/{Path(path).name}")
+                return m.group(0).replace(m.group(1), f"figures/{bundle_dir}/{Path(path).name}")
             return m.group(0)
 
         pgf_text = re.sub(
@@ -297,9 +297,9 @@ def _make_overleaf_zip(
             pgf_text,
             flags=re.DOTALL,
         )
-        # Ensure any remaining png references are rewritten with the <base>/ prefix.
+        # Ensure any remaining png references are rewritten with the figures/<base>/ prefix.
         for m in re.findall(r"([A-Za-z0-9_./-]+\.png)", pgf_text):
-            new_path = f"{bundle_dir}/{Path(m).name}"
+            new_path = f"figures/{bundle_dir}/{Path(m).name}"
             pgf_text = pgf_text.replace(m, new_path)
         pgf_bundle = out_dir / f"{pgf.stem}_bundle{pgf.suffix}"
         pgf_bundle.write_text(pgf_text)
