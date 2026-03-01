@@ -99,6 +99,7 @@ def render_latex(
             tex=tex,
             pgf=None,
             zip_name=_zip_name,
+            bundle_dir=name,
         )
         _maybe_download(_zip_path)
 
@@ -112,6 +113,7 @@ def pgfplot_helper(
     height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
+    caption: str | None = None,
     download_zip: bool = False,
     zip_name: str | None = None,
 ):
@@ -124,7 +126,16 @@ def pgfplot_helper(
     if name is None:
         name = filename.stem + "_preview"
 
-    snippet = rf"\input{{{filename.name}}}"
+    if caption:
+        snippet = rf"""
+\begin{{figure}}
+\centering
+\input{{{filename.name}}}
+\caption{{{caption}}}
+\end{{figure}}
+""".strip()
+    else:
+        snippet = rf"\input{{{filename.name}}}"
 
     preamble = r"""
 \usepackage{pgfplots}
@@ -152,6 +163,7 @@ def pgfplot(
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
     close: bool = True,
+    caption: str | None = None,
     download_zip: bool = False,
     zip_name: str | None = None,
 ):
@@ -189,6 +201,7 @@ def pgfplot(
         height=height,
         out_dir=out_dir,
         engine=engine,
+        caption=caption,
         download_zip=False,
         zip_name=None,
     )
@@ -200,38 +213,84 @@ def pgfplot(
             tex=OUT / f"{name}_preview.tex",
             pgf=pgf_file,
             zip_name=_zip_name,
+            bundle_dir=name,
         )
         _maybe_download(_zip_path)
 
     return result
 
 
-def _make_overleaf_zip(out_dir: Path, tex: Path, pgf: Path | None, zip_name: str) -> Path:
+def _make_overleaf_zip(
+    out_dir: Path,
+    tex: Path,
+    pgf: Path | None,
+    zip_name: str,
+    bundle_dir: str = "pgfbundle",
+) -> Path:
     import re
     import zipfile
 
     zip_path = out_dir / zip_name
 
     files = []
+
+    # Create bundle-safe copies without touching originals.
+    tex_bundle = None
+    pgf_bundle = None
     if tex.exists():
-        files.append(tex)
+        text = tex.read_text(errors="ignore")
+        if pgf is not None and pgf.exists():
+            # Tex lives in the same folder as the pgf inside the bundle.
+            text = text.replace(f"\\input{{{pgf.name}}}", f"\\input{{{pgf.name}}}")
+        tex_bundle = out_dir / f"{tex.stem}_bundle{tex.suffix}"
+        tex_bundle.write_text(text)
+        files.append((tex_bundle, f"{bundle_dir}/{tex.name}"))
+
     if pgf is not None and pgf.exists():
-        files.append(pgf)
+        pgf_text = pgf.read_text(errors="ignore")
+
+        def _fix_include(m: re.Match) -> str:
+            path = re.sub(r"\\s+", "", m.group(1))
+            if path.endswith(".png"):
+                return m.group(0).replace(m.group(1), f"{bundle_dir}/{path}")
+            return m.group(0)
+
+        pgf_text = re.sub(
+            r"(\\includegraphics[^\\{]*\\{)([^}]+)(\\})",
+            lambda mm: mm.group(1) + re.sub(r"\\s+", "", mm.group(2)) + mm.group(3),
+            pgf_text,
+            flags=re.DOTALL,
+        )
+        pgf_text = re.sub(
+            r"\\includegraphics[^\\{]*\\{([^}]+)\\}",
+            _fix_include,
+            pgf_text,
+            flags=re.DOTALL,
+        )
+        pgf_bundle = out_dir / f"{pgf.stem}_bundle{pgf.suffix}"
+        pgf_bundle.write_text(pgf_text)
+        files.append((pgf_bundle, f"{bundle_dir}/{pgf.name}"))
 
     pngs = set()
     if pgf is not None and pgf.exists():
         text = pgf.read_text(errors="ignore")
+        # Capture includegraphics paths even if LaTeX line-breaks the filename.
+        for m in re.findall(r"\\includegraphics[^\\{]*\\{([^}]+)\\}", text, flags=re.DOTALL):
+            cleaned = re.sub(r"\\s+", "", m)
+            if cleaned.endswith(".png"):
+                pngs.add(cleaned)
+        # Fallback: any explicit .png tokens
         for m in re.findall(r"([A-Za-z0-9_./-]+\\.png)", text):
             pngs.add(m)
 
     for rel in pngs:
         candidate = (out_dir / rel).resolve()
         if candidate.exists():
-            files.append(candidate)
+            files.append((candidate, f"{bundle_dir}/{Path(rel).name}"))
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for f in files:
-            zf.write(f, arcname=f.name)
+        for f, arc in files:
+            zf.write(f, arcname=arc)
 
     return zip_path
 
