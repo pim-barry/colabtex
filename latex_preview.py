@@ -100,6 +100,7 @@ def render_latex(
             pgf=None,
             zip_name=_zip_name,
             bundle_dir=name,
+            caption=None,
         )
         _maybe_download(_zip_path)
 
@@ -128,11 +129,10 @@ def pgfplot_helper(
 
     if caption:
         snippet = rf"""
-\begin{{figure}}
-\centering
+\begin{{center}}
 \input{{{filename.name}}}
-\caption{{{caption}}}
-\end{{figure}}
+\captionof{{figure}}{{{caption}}}
+\end{{center}}
 """.strip()
     else:
         snippet = rf"\input{{{filename.name}}}"
@@ -142,6 +142,8 @@ def pgfplot_helper(
 \pgfplotsset{compat=1.18}
 \providecommand{\mathdefault}[1]{#1}
 """
+    if caption:
+        preamble += "\n\\usepackage{caption}\n"
 
     return render_latex(
         snippet=snippet,
@@ -214,6 +216,7 @@ def pgfplot(
             pgf=pgf_file,
             zip_name=_zip_name,
             bundle_dir=name,
+            caption=caption,
         )
         _maybe_download(_zip_path)
 
@@ -226,6 +229,7 @@ def _make_overleaf_zip(
     pgf: Path | None,
     zip_name: str,
     bundle_dir: str = "pgfbundle",
+    caption: str | None = None,
 ) -> Path:
     import re
     import zipfile
@@ -238,10 +242,21 @@ def _make_overleaf_zip(
     tex_bundle = None
     pgf_bundle = None
     if tex.exists():
-        text = tex.read_text(errors="ignore")
         if pgf is not None and pgf.exists():
-            # Tex lives in the same folder as the pgf inside the bundle.
-            text = text.replace(f"\\input{{{pgf.name}}}", f"\\input{{{pgf.name}}}")
+            # Create an Overleaf-friendly tex (non-standalone).
+            if caption:
+                text = rf"""
+\begin{{figure}}
+\centering
+\input{{{pgf.name}}}
+\caption{{{caption}}}
+\end{{figure}}
+""".strip()
+            else:
+                text = rf"\input{{{pgf.name}}}"
+        else:
+            text = tex.read_text(errors="ignore")
+
         tex_bundle = out_dir / f"{tex.stem}_bundle{tex.suffix}"
         tex_bundle.write_text(text)
         files.append((tex_bundle, f"{bundle_dir}/{tex.name}"))
