@@ -45,7 +45,16 @@ def render_latex(
         check=True,
     )
 
-    display(IFrame(str(pdf), width=width, height=height))
+    # Correct Colab-safe display
+    b64 = base64.b64encode(pdf.read_bytes()).decode()
+
+    display(HTML(f"""
+    <iframe
+        src="data:application/pdf;base64,{b64}"
+        width="{width}"
+        height="{height}">
+    </iframe>
+    """))
 
     return {"tex": tex, "pdf": pdf}
 
