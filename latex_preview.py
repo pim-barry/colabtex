@@ -131,11 +131,9 @@ def pgfplot_helper(
 
     if caption:
         snippet = rf"""
-\begin{{figure}}
 \centering
 \input{{{filename.name}}}
-\caption{{{caption}}}
-\end{{figure}}
+\captionof{{figure}}{{{caption}}}
 """.strip()
     else:
         snippet = rf"\input{{{filename.name}}}"
@@ -147,9 +145,8 @@ def pgfplot_helper(
 """
     if caption:
         preamble += "\n\\usepackage{caption}\n"
-        # Use article for preview when figure/caption is used.
-        doc_class = "article"
-        doc_class_opts = ""
+        doc_class = "standalone"
+        doc_class_opts = "varwidth=true,border=2pt"
     else:
         doc_class = "standalone"
         doc_class_opts = "crop,tight"
