@@ -1,15 +1,26 @@
 import subprocess
-import re
 from pathlib import Path
-from IPython.display import SVG, display
+from IPython.display import IFrame, display
 
-def render_latex(snippet, name="preview", preamble=""):
-    OUT = Path("tex_out")
+
+def render_latex(
+    snippet: str,
+    name: str = "preview",
+    preamble: str = "",
+    width: int = 600,
+    height: int = 400,
+    out_dir: str = "tex_out",
+    engine: str = "pdflatex",
+):
+    """
+    Compile LaTeX snippet and preview as PDF safely.
+    """
+
+    OUT = Path(out_dir)
     OUT.mkdir(exist_ok=True)
 
     tex = OUT / f"{name}.tex"
     pdf = OUT / f"{name}.pdf"
-    svg = OUT / f"{name}.svg"
 
     tex.write_text(f"""
 \\documentclass{{standalone}}
@@ -17,32 +28,104 @@ def render_latex(snippet, name="preview", preamble=""):
 \\begin{{document}}
 {snippet}
 \\end{{document}}
-""")
+""".strip())
 
-    # compile LaTeX → PDF
     subprocess.run(
-        ["latexmk", "-pdf", "-interaction=nonstopmode", tex.name],
+        [
+            "latexmk",
+            "-pdf",
+            f"-{engine}",
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            tex.name,
+        ],
         cwd=OUT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True,
     )
 
-    # convert PDF → SVG
-    subprocess.run(
-        ["pdf2svg", pdf.name, svg.name],
-        cwd=OUT,
-        check=True
+    display(IFrame(str(pdf), width=width, height=height))
+
+    return {"tex": tex, "pdf": pdf}
+
+
+def pgfplot_helper(
+    filename: str,
+    name: str = None,
+    width: int = 600,
+    height: int = 400,
+    out_dir: str = "tex_out",
+    engine: str = "pdflatex",
+):
+    """
+    Preview an existing PGF plot file.
+    Internal helper.
+    """
+
+    from pathlib import Path
+
+    if name is None:
+        name = Path(filename).stem + "_preview"
+
+    snippet = rf"\input{{{filename}}}"
+
+    preamble = r"""
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\providecommand{\mathdefault}[1]{#1}
+"""
+
+    return render_latex(
+        snippet=snippet,
+        name=name,
+        preamble=preamble,
+        width=width,
+        height=height,
+        out_dir=out_dir,
+        engine=engine,
     )
 
-    # read SVG
-    content = svg.read_text()
 
-    # replace width and height
-    content = re.sub(r'width="[^"]+"', 'width="200pt"', content)
-    content = re.sub(r'height="[^"]+"', 'height="auto"', content)
+def pgfplot(
+    name: str = "plot",
+    width: int = 600,
+    height: int = 400,
+    out_dir: str = "tex_out",
+    engine: str = "pdflatex",
+    close: bool = True,
+):
+    """
+    Export CURRENT matplotlib figure to PGF and preview it.
 
-    # write back
-    svg.write_text(content)
+    Usage:
+        plt.plot(x,y)
+        pgfplot("figure_name", width=800)
+    """
 
-    display(SVG(str(svg)))
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+
+    OUT = Path(out_dir)
+    OUT.mkdir(exist_ok=True)
+
+    pgf_file = OUT / f"{name}.pgf"
+
+    mpl.rcParams.update({
+        "pgf.texsystem": engine,
+        "pgf.rcfonts": False,
+    })
+
+    plt.savefig(pgf_file)
+
+    if close:
+        plt.close()
+
+    return pgfplot_helper(
+        filename=pgf_file.name,
+        name=name + "_preview",
+        width=width,
+        height=height,
+        out_dir=out_dir,
+        engine=engine,
+    )
