@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+import base64
 from IPython.display import IFrame, display
 
 
