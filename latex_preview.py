@@ -79,10 +79,16 @@ def render_latex(
         style += f"height:{height}px;"
 
     display(HTML(f"""
-<div style="{style}">
-{svg_content}
-</div>
-"""))
+    <div class="pgf-svg-wrapper" style="{style} display: inline-block;">
+        <style>
+            .pgf-svg-wrapper svg {{
+                width: 100% !important;
+                height: auto !important;
+            }}
+        </style>
+        {svg_content}
+    </div>
+    """))
 
     return {"tex": tex, "pdf": pdf, "svg": svg}
 
@@ -152,7 +158,8 @@ def pgfplot(
         "pgf.rcfonts": False,
     })
 
-    plt.savefig(pgf_file)
+    # Save with tight bounding box to prevent clipping labels in PGF
+    plt.savefig(pgf_file, bbox_inches="tight")
 
     if close:
         plt.close()
