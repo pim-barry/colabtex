@@ -129,27 +129,16 @@ def pgfplot_helper(
     if name is None:
         name = filename.stem + "_preview"
 
-    if caption:
-        snippet = rf"""
-\centering
-\input{{{filename.name}}}
-\captionof{{figure}}{{{caption}}}
-""".strip()
-    else:
-        snippet = rf"\input{{{filename.name}}}"
+    # Ignore caption for preview rendering.
+    snippet = rf"\input{{{filename.name}}}"
 
     preamble = r"""
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \providecommand{\mathdefault}[1]{#1}
 """
-    if caption:
-        preamble += "\n\\usepackage{caption}\n"
-        doc_class = "standalone"
-        doc_class_opts = "varwidth=true,border=6pt"
-    else:
-        doc_class = "standalone"
-        doc_class_opts = "crop,tight,border=2pt"
+    doc_class = "standalone"
+    doc_class_opts = "crop,tight,border=2pt"
 
     return render_latex(
         snippet=snippet,
