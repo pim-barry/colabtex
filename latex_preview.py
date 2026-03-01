@@ -15,7 +15,7 @@ def render_latex(
 ):
     """
     Compile LaTeX snippet and preview as SVG.
-    Same interface as your PDF version, but uses SVG backend.
+    Fully self-contained and fixes blank PGF plot issue.
     """
 
     OUT = Path(out_dir)
@@ -25,17 +25,18 @@ def render_latex(
     pdf = OUT / f"{name}.pdf"
     svg = OUT / f"{name}.svg"
 
+    # CRITICAL FIX: crop,tight ensures proper bounding box
     tex.write_text(
         f"""
-\\documentclass{{standalone}}
+\\documentclass[crop,tight]{{standalone}}
 {preamble}
+\\usepackage{{graphicx}}
 \\begin{{document}}
 {snippet}
 \\end{{document}}
 """.strip()
     )
 
-    # correct latexmk engine flags
     engine_flags = {
         "pdflatex": "-pdf",
         "xelatex": "-xelatex",
@@ -45,7 +46,7 @@ def render_latex(
     if engine not in engine_flags:
         raise ValueError(f"Unsupported engine: {engine}")
 
-    # compile LaTeX → PDF
+    # Compile LaTeX → PDF
     subprocess.run(
         [
             "latexmk",
@@ -60,7 +61,7 @@ def render_latex(
         check=True,
     )
 
-    # convert PDF → SVG
+    # Convert PDF → SVG
     subprocess.run(
         ["pdf2svg", pdf.name, svg.name],
         cwd=OUT,
@@ -69,7 +70,7 @@ def render_latex(
         check=True,
     )
 
-    # normalize SVG size to requested width/height
+    # Resize SVG to requested dimensions
     content = svg.read_text()
 
     content = re.sub(r'width="[^"]+"', f'width="{width}px"', content)
@@ -92,7 +93,6 @@ def pgfplot_helper(
 ):
     """
     Preview an existing PGF plot file.
-    Same interface preserved.
     """
 
     filename = Path(filename)
@@ -128,8 +128,7 @@ def pgfplot(
     close: bool = True,
 ):
     """
-    Export CURRENT matplotlib figure to PGF and preview as SVG.
-    Interface unchanged.
+    Export current matplotlib figure to PGF and preview as SVG.
     """
 
     import matplotlib.pyplot as plt
