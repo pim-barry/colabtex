@@ -3,6 +3,7 @@ import base64
 from pathlib import Path
 from IPython.display import HTML, display
 
+
 def render_latex(
     snippet: str,
     name: str = "preview",
@@ -13,7 +14,8 @@ def render_latex(
     engine: str = "pdflatex",
 ):
     """
-    Compile LaTeX snippet and preview as PDF safely.
+    Compile LaTeX snippet and preview as embedded PDF.
+    Fully self-contained and robust.
     """
 
     OUT = Path(out_dir)
@@ -22,37 +24,51 @@ def render_latex(
     tex = OUT / f"{name}.tex"
     pdf = OUT / f"{name}.pdf"
 
-    tex.write_text(f"""
+    tex.write_text(
+        f"""
 \\documentclass{{standalone}}
 {preamble}
 \\begin{{document}}
 {snippet}
 \\end{{document}}
-""".strip())
+""".strip()
+    )
+
+    # Correct latexmk engine handling
+    engine_flags = {
+        "pdflatex": "-pdf",
+        "xelatex": "-xelatex",
+        "lualatex": "-lualatex",
+    }
+
+    if engine not in engine_flags:
+        raise ValueError(f"Unsupported engine: {engine}")
+
+    cmd = [
+        "latexmk",
+        engine_flags[engine],
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        tex.name,
+    ]
 
     subprocess.run(
-        [
-            "latexmk",
-            "-pdf",
-            f"-{engine}",
-            "-interaction=nonstopmode",
-            "-halt-on-error",
-            tex.name,
-        ],
+        cmd,
         cwd=OUT,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=True,
     )
 
-    # Correct Colab-safe display
+    # Embed PDF safely
     b64 = base64.b64encode(pdf.read_bytes()).decode()
 
     display(HTML(f"""
     <iframe
         src="data:application/pdf;base64,{b64}"
         width="{width}"
-        height="{height}">
+        height="{height}"
+        style="border:none;">
     </iframe>
     """))
 
@@ -68,16 +84,15 @@ def pgfplot_helper(
     engine: str = "pdflatex",
 ):
     """
-    Preview an existing PGF plot file.
-    Internal helper.
+    Preview an existing PGF file.
     """
 
-    from pathlib import Path
+    filename = Path(filename)
 
     if name is None:
-        name = Path(filename).stem + "_preview"
+        name = filename.stem + "_preview"
 
-    snippet = rf"\input{{{filename}}}"
+    snippet = rf"\input{{{filename.name}}}"
 
     preamble = r"""
 \usepackage{pgfplots}
@@ -105,11 +120,7 @@ def pgfplot(
     close: bool = True,
 ):
     """
-    Export CURRENT matplotlib figure to PGF and preview it.
-
-    Usage:
-        plt.plot(x,y)
-        pgfplot("figure_name", width=800)
+    Export current matplotlib figure to PGF and preview.
     """
 
     import matplotlib.pyplot as plt
