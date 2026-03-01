@@ -1,7 +1,7 @@
 import subprocess
-import base64
+import re
 from pathlib import Path
-from IPython.display import HTML, display
+from IPython.display import SVG, display
 
 
 def render_latex(
@@ -14,8 +14,8 @@ def render_latex(
     engine: str = "pdflatex",
 ):
     """
-    Compile LaTeX snippet and preview as embedded PDF.
-    Fully self-contained and robust.
+    Compile LaTeX snippet and preview as SVG.
+    Same interface as your PDF version, but uses SVG backend.
     """
 
     OUT = Path(out_dir)
@@ -23,6 +23,7 @@ def render_latex(
 
     tex = OUT / f"{name}.tex"
     pdf = OUT / f"{name}.pdf"
+    svg = OUT / f"{name}.svg"
 
     tex.write_text(
         f"""
@@ -34,7 +35,7 @@ def render_latex(
 """.strip()
     )
 
-    # Correct latexmk engine handling
+    # correct latexmk engine flags
     engine_flags = {
         "pdflatex": "-pdf",
         "xelatex": "-xelatex",
@@ -44,35 +45,41 @@ def render_latex(
     if engine not in engine_flags:
         raise ValueError(f"Unsupported engine: {engine}")
 
-    cmd = [
-        "latexmk",
-        engine_flags[engine],
-        "-interaction=nonstopmode",
-        "-halt-on-error",
-        tex.name,
-    ]
-
+    # compile LaTeX → PDF
     subprocess.run(
-        cmd,
+        [
+            "latexmk",
+            engine_flags[engine],
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            tex.name,
+        ],
         cwd=OUT,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=True,
     )
 
-    # Embed PDF safely
-    b64 = base64.b64encode(pdf.read_bytes()).decode()
+    # convert PDF → SVG
+    subprocess.run(
+        ["pdf2svg", pdf.name, svg.name],
+        cwd=OUT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True,
+    )
 
-    display(HTML(f"""
-    <iframe
-        src="data:application/pdf;base64,{b64}"
-        width="{width}"
-        height="{height}"
-        style="border:none;">
-    </iframe>
-    """))
+    # normalize SVG size to requested width/height
+    content = svg.read_text()
 
-    return {"tex": tex, "pdf": pdf}
+    content = re.sub(r'width="[^"]+"', f'width="{width}px"', content)
+    content = re.sub(r'height="[^"]+"', f'height="{height}px"', content)
+
+    svg.write_text(content)
+
+    display(SVG(str(svg)))
+
+    return {"tex": tex, "pdf": pdf, "svg": svg}
 
 
 def pgfplot_helper(
@@ -84,7 +91,8 @@ def pgfplot_helper(
     engine: str = "pdflatex",
 ):
     """
-    Preview an existing PGF file.
+    Preview an existing PGF plot file.
+    Same interface preserved.
     """
 
     filename = Path(filename)
@@ -120,7 +128,8 @@ def pgfplot(
     close: bool = True,
 ):
     """
-    Export current matplotlib figure to PGF and preview.
+    Export CURRENT matplotlib figure to PGF and preview as SVG.
+    Interface unchanged.
     """
 
     import matplotlib.pyplot as plt
