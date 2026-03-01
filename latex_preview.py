@@ -146,10 +146,10 @@ def pgfplot_helper(
     if caption:
         preamble += "\n\\usepackage{caption}\n"
         doc_class = "standalone"
-        doc_class_opts = "varwidth=true,border=2pt"
+        doc_class_opts = "varwidth=true,border=6pt"
     else:
         doc_class = "standalone"
-        doc_class_opts = "crop,tight"
+        doc_class_opts = "crop,tight,border=2pt"
 
     return render_latex(
         snippet=snippet,
@@ -198,8 +198,8 @@ def pgfplot(
         "pgf.rcfonts": False,
     })
 
-    # Save with tight bounding box to prevent clipping labels in PGF
-    plt.savefig(pgf_file, bbox_inches="tight")
+    # Let standalone handle cropping; avoids double-tight clipping of titles.
+    plt.savefig(pgf_file)
 
     if close:
         plt.close()
