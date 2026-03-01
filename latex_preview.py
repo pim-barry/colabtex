@@ -328,6 +328,14 @@ def _maybe_download(path: Path) -> None:
 
 def _maybe_download_link(path: Path) -> None:
     try:
+        try:
+            from google.colab import files  # type: ignore
+            # Colab doesn't serve local files via localhost; trigger a safe download.
+            files.download(str(path))
+            return
+        except Exception:
+            pass
+
         from IPython.display import FileLink, display  # type: ignore
         display(FileLink(str(path)))
     except Exception:
