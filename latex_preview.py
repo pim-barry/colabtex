@@ -252,23 +252,29 @@ def _make_overleaf_zip(
     if tex.exists():
         if pgf is not None and pgf.exists():
             # Create an Overleaf-friendly tex (non-standalone).
+            figures_path = f"figures/{bundle_dir}/{pgf.name}"
             if caption:
                 text = rf"""
 \begin{{figure}}
 \centering
-\input{{{pgf.name}}}
+\resizebox{{\columnwidth}}{{!}}{{%
+  \input{{{figures_path}}}%
+}}
 \caption{{{caption}}}
 \end{{figure}}
 """.strip()
             else:
-                text = rf"\input{{{pgf.name}}}"
+                text = rf"""
+\resizebox{{\columnwidth}}{{!}}{{%
+  \input{{{figures_path}}}%
+}}
+""".strip()
         else:
             text = tex.read_text(errors="ignore")
 
         tex_bundle = out_dir / f"{tex.stem}_bundle{tex.suffix}"
         tex_bundle.write_text(text)
-        bundle_tex_name = tex.name.replace("_preview", "")
-        files.append((tex_bundle, f"{bundle_dir}/{bundle_tex_name}"))
+        files.append((tex_bundle, f"figures/{bundle_dir}/fig.tex"))
 
     if pgf is not None and pgf.exists():
         pgf_text = pgf.read_text(errors="ignore")
@@ -276,7 +282,7 @@ def _make_overleaf_zip(
         def _fix_include(m: re.Match) -> str:
             path = re.sub(r"\\s+", "", m.group(1))
             if path.endswith(".png"):
-                return m.group(0).replace(m.group(1), f"{bundle_dir}/{path}")
+                return m.group(0).replace(m.group(1), f"figures/{bundle_dir}/{Path(path).name}")
             return m.group(0)
 
         pgf_text = re.sub(
@@ -293,7 +299,7 @@ def _make_overleaf_zip(
         )
         pgf_bundle = out_dir / f"{pgf.stem}_bundle{pgf.suffix}"
         pgf_bundle.write_text(pgf_text)
-        files.append((pgf_bundle, f"{bundle_dir}/{pgf.name}"))
+        files.append((pgf_bundle, f"figures/{bundle_dir}/{pgf.name}"))
 
     pngs = set()
     if pgf is not None and pgf.exists():
@@ -351,7 +357,7 @@ def _make_overleaf_zip(
                     break
 
         if found is not None:
-            files.append((found, f"{bundle_dir}/{found.name}"))
+            files.append((found, f"figures/{bundle_dir}/{found.name}"))
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for f, arc in files:
