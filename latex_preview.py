@@ -11,6 +11,8 @@ def render_latex(
     height: int = None,
     out_dir: str = "tex_out",
     engine: str = "pdflatex",
+    doc_class: str = "standalone",
+    doc_class_opts: str = "crop,tight",
     download_zip: bool = False,
     zip_name: str | None = None,
 ):
@@ -28,10 +30,10 @@ def render_latex(
     pdf = OUT / f"{name}.pdf"
     svg = OUT / f"{name}.svg"
 
-    # Standalone ensures tight bounding box
+    # Standalone ensures tight bounding box by default
     tex.write_text(
         f"""
-\\documentclass[crop,tight]{{standalone}}
+\\documentclass[{doc_class_opts}]{{{doc_class}}}
 {preamble}
 \\usepackage{{graphicx}}
 \\begin{{document}}
@@ -102,7 +104,7 @@ def render_latex(
             bundle_dir=name,
             caption=None,
         )
-        _maybe_download(_zip_path)
+        _maybe_download_link(_zip_path)
 
     return {"tex": tex, "pdf": pdf, "svg": svg}
 
@@ -129,10 +131,11 @@ def pgfplot_helper(
 
     if caption:
         snippet = rf"""
-\begin{{center}}
+\begin{{figure}}
+\centering
 \input{{{filename.name}}}
-\captionof{{figure}}{{{caption}}}
-\end{{center}}
+\caption{{{caption}}}
+\end{{figure}}
 """.strip()
     else:
         snippet = rf"\input{{{filename.name}}}"
@@ -144,6 +147,12 @@ def pgfplot_helper(
 """
     if caption:
         preamble += "\n\\usepackage{caption}\n"
+        # Use article for preview when figure/caption is used.
+        doc_class = "article"
+        doc_class_opts = ""
+    else:
+        doc_class = "standalone"
+        doc_class_opts = "crop,tight"
 
     return render_latex(
         snippet=snippet,
@@ -153,6 +162,8 @@ def pgfplot_helper(
         height=height,
         out_dir=out_dir,
         engine=engine,
+        doc_class=doc_class,
+        doc_class_opts=doc_class_opts,
         download_zip=download_zip,
         zip_name=zip_name,
     )
@@ -218,7 +229,7 @@ def pgfplot(
             bundle_dir=name,
             caption=caption,
         )
-        _maybe_download(_zip_path)
+        _maybe_download_link(_zip_path)
 
     return result
 
@@ -314,5 +325,13 @@ def _maybe_download(path: Path) -> None:
     try:
         from google.colab import files  # type: ignore
         files.download(str(path))
+    except Exception:
+        pass
+
+
+def _maybe_download_link(path: Path) -> None:
+    try:
+        from IPython.display import FileLink, display  # type: ignore
+        display(FileLink(str(path)))
     except Exception:
         pass
