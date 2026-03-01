@@ -306,6 +306,23 @@ def _make_overleaf_zip(
         # Fallback: any explicit .png tokens
         for m in re.findall(r"([A-Za-z0-9_./-]+\\.png)", text):
             pngs.add(m)
+        # Final fallback: scan for includegraphics and grab braces manually.
+        if not pngs and "\\includegraphics" in text:
+            idx = 0
+            while True:
+                idx = text.find("\\includegraphics", idx)
+                if idx == -1:
+                    break
+                brace = text.find("{", idx)
+                if brace == -1:
+                    break
+                end = text.find("}", brace + 1)
+                if end == -1:
+                    break
+                candidate = re.sub(r"\\s+", "", text[brace + 1 : end])
+                if candidate.endswith(".png"):
+                    pngs.add(candidate)
+                idx = end + 1
 
     search_roots = [
         out_dir,
