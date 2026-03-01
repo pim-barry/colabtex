@@ -1,8 +1,7 @@
 import subprocess
 import base64
 from pathlib import Path
-from IPython.display import IFrame, display
-
+from IPython.display import HTML, display
 
 def render_latex(
     snippet: str,
