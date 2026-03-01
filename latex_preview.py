@@ -198,6 +198,9 @@ def pgfplot(
         "pgf.rcfonts": False,
     })
 
+    # Ensure titles/labels are included in the figure layout before export.
+    fig = plt.gcf()
+    fig.set_constrained_layout(True)
     # Let standalone handle cropping; avoids double-tight clipping of titles.
     plt.savefig(pgf_file)
 
