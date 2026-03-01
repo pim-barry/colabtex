@@ -312,6 +312,8 @@ def _make_overleaf_zip(
         Path.cwd(),
         Path.cwd() / "data" / "out",
     ]
+    if pgf is not None:
+        search_roots.insert(0, pgf.parent)
 
     for rel in pngs:
         found = None
